@@ -1,0 +1,9 @@
+<?php
+
+define('MIGRATIONS_DIR',  'migrations/');
+
+define('DBNAME', '');
+define('DBUSERNAME',  '');
+define('DBPASSWORD',  '');
+define('DBADDRESS',  '');
+
