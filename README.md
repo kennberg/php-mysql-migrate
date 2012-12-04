@@ -25,6 +25,10 @@ To migrate to the latest version:
 
     php php-mysql-migrate/migrate.php migrate
 
+The migrate script will create a ".version" file in the directory from which it is run. For this reason, I recommend running the migration script from one level up. Do not check the version file since it needs to be local.
+
+One the other hand, the scripts created under "migrations/" folder should be checked into the code repository, so other enviornments can migrate the database using them.
+
 More info
 ======================
 

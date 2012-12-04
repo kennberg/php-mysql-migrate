@@ -31,13 +31,12 @@ if (count($argv) <= 1) {
      To migrate your database:
          php php-mysql-migrate/migrate.php migrate
      ";
-  flush();
   exit;
 }
 
-define ('MIGRATE_VERSION_FILE', '.version');
-define ('MIGRATE_FILE_PREFIX', 'migrate-');
-define ('MIGRATE_FILE_POSTFIX', '.php');
+define('MIGRATE_VERSION_FILE', '.version');
+define('MIGRATE_FILE_PREFIX', 'migrate-');
+define('MIGRATE_FILE_POSTFIX', '.php');
 require_once('config.php');
 
 if (count($argv) <= 1) {
@@ -45,11 +44,16 @@ if (count($argv) <= 1) {
   exit;
 }
 
-$link = mysql_connect(DBADDRESS, DBUSERNAME, DBPASSWORD);
-if (!$link)
-  die('Failed to connect to the database');
-mysql_select_db(DBNAME, $link);
-mysql_query("SET NAMES 'utf8'", $link);
+// Connect to the database.
+if (!@DEBUG) {
+  $link = mysql_connect(DBADDRESS, DBUSERNAME, DBPASSWORD);
+  if (!$link) {
+    echo "Failed to connect to the database.\n";
+    exit;
+  }
+  mysql_select_db(DBNAME, $link);
+  mysql_query("SET NAMES 'utf8'", $link);
+}
 
 // Find the latest version or start at 0.
 $version = 0;
@@ -63,23 +67,51 @@ echo "Current database version is: $version\n";
 global $link;
 function query($query) {
   global $link;
+
+  if (@DEBUG)
+    return true;
+
   $result = mysql_query($query, $link);
   if (!$result) {
-    flush();
     echo "Migration failed: " . mysql_error($link) . "\n";
     echo "Aborting.\n";
     mysql_query('ROLLBACK', $link);
     mysql_close($link);
-    flush();
     exit;
   }
   return $result;
 }
 
+function get_migrations() {
+  // Find all the migration files in the directory and return the sorted.
+  $files = array();
+  $dir = opendir(MIGRATIONS_DIR);
+  while ($file = readdir($dir)) {
+    if (substr($file, 0, strlen(MIGRATE_FILE_PREFIX)) == MIGRATE_FILE_PREFIX)
+      $files[] = $file;
+  }
+  asort($files);
+  return $files;
+}
+
+function get_version_from_file($file) {
+  return intval(substr($file, strlen(MIGRATE_FILE_PREFIX)));
+}
+
 if ($argv[1] == 'add') {
+  $new_version = $version;
+
+  // Check the new version against existing migrations.
+  $last_file = end(get_migrations());
+  if ($last_file !== false) {
+    $file_version = get_version_from_file($last_file);
+    if ($file_version > $new_version)
+      $new_version = $file_version;
+  }
+
   // Create migration file path.
-  $version++;
-  $path = MIGRATIONS_DIR . MIGRATE_FILE_PREFIX . sprintf('%04d', $version);
+  $new_version++;
+  $path = MIGRATIONS_DIR . MIGRATE_FILE_PREFIX . sprintf('%04d', $new_version);
   if (@strlen($argv[2]))
     $path .= '-' . $argv[2];
   $path .= MIGRATE_FILE_POSTFIX;
@@ -97,28 +129,18 @@ if ($argv[1] == 'add') {
   }
 }
 else if ($argv[1] == 'migrate') {
-  // Find all the migration files in the directory.
-  $files = array();
-  $dir = opendir(MIGRATIONS_DIR);
-  while ($file = readdir($dir)) {
-    if (substr($file, 0, strlen(MIGRATE_FILE_PREFIX)) == MIGRATE_FILE_PREFIX)
-      $files[] = $file;
-  }
-  asort($files);
-
   // Run all the new files.
+  $files = get_migrations();
   $found_new = false;
   foreach ($files as $file) {
-    $file_version = intval(substr($file, strlen(MIGRATE_FILE_PREFIX)));
+    $file_version = get_version_from_file($file);
     if ($file_version <= $version)
       continue;
 
     echo "Running: $file\n";
-    mysql_query('BEGIN', $link);
-    flush();
+    query('BEGIN');
     include(MIGRATIONS_DIR . $file);
-    mysql_query('COMMIT', $link);
-    flush();
+    query('COMMIT');
     echo "Done.\n";
 
     $version = $file_version;
@@ -141,5 +163,7 @@ else if ($argv[1] == 'migrate') {
     echo "Your database is up-to-date.\n";
 }
 
-mysql_close($link);
+if (!@DEBUG) {
+  mysql_close($link);
+}
 
