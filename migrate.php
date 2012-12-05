@@ -34,10 +34,11 @@ if (count($argv) <= 1) {
   exit;
 }
 
-define('MIGRATE_VERSION_FILE', '.version');
-define('MIGRATE_FILE_PREFIX', 'migrate-');
-define('MIGRATE_FILE_POSTFIX', '.php');
 require_once('config.php');
+@define('MIGRATE_VERSION_FILE', '.version');
+@define('MIGRATE_FILE_PREFIX', 'migrate-');
+@define('MIGRATE_FILE_POSTFIX', '.php');
+@define('DEBUG', false);
 
 if (count($argv) <= 1) {
   echo "See readme file for usage.\n";
