@@ -1,4 +1,4 @@
-<?
+<?php
 /**
  * Tiny migrate script for PHP and MySQL.
  *
