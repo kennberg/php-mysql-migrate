@@ -88,8 +88,9 @@ function get_migrations() {
   $files = array();
   $dir = opendir(MIGRATIONS_DIR);
   while ($file = readdir($dir)) {
-    if (substr($file, 0, strlen(MIGRATE_FILE_PREFIX)) == MIGRATE_FILE_PREFIX)
+    if (substr($file, 0, strlen(MIGRATE_FILE_PREFIX)) == MIGRATE_FILE_PREFIX) {
       $files[] = $file;
+    }
   }
   asort($files);
   return $files;
@@ -113,8 +114,9 @@ if ($argv[1] == 'add') {
   // Create migration file path.
   $new_version++;
   $path = MIGRATIONS_DIR . MIGRATE_FILE_PREFIX . sprintf('%04d', $new_version);
-  if (@strlen($argv[2]))
+  if (@strlen($argv[2])) {
     $path .= '-' . $argv[2];
+  }
   $path .= MIGRATE_FILE_POSTFIX;
 
   echo "Adding a new migration script: $path\n";
@@ -130,13 +132,36 @@ if ($argv[1] == 'add') {
   }
 }
 else if ($argv[1] == 'migrate') {
-  // Run all the new files.
   $files = get_migrations();
+
+  // Check to make sure there are no conflicts such as 2 files under the same version.
+  $errors = array();
+  $last_file = false;
+  $last_version = false;
+  foreach ($files as $file) {
+    $file_version = get_version_from_file($file);
+    if ($last_version !== false && $last_version === $file_version) {
+      $errors[] = "$last_file --- $file";
+    }
+    $last_version = $file_version;
+    $last_file = $file;
+  }
+  if (count($errors) > 0) {
+    echo "Error: You have multiple files using the same version. " .
+      "To resolve, move some of the files up so each one gets a unique version.\n";
+    foreach ($errors as $error) {
+      echo "  $error\n";
+    }
+    exit;
+  }
+
+  // Run all the new files.
   $found_new = false;
   foreach ($files as $file) {
     $file_version = get_version_from_file($file);
-    if ($file_version <= $version)
+    if ($file_version <= $version) {
       continue;
+    }
 
     echo "Running: $file\n";
     query('BEGIN');
@@ -158,10 +183,12 @@ else if ($argv[1] == 'migrate') {
     }
   }
 
-  if ($found_new)
+  if ($found_new) {
     echo "Migration complete.\n";
-  else
+  }
+  else {
     echo "Your database is up-to-date.\n";
+  }
 }
 
 if (!@DEBUG) {

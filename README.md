@@ -3,7 +3,7 @@ php-mysql-migrate
 
 Tiny one file migration script for MySQL using PHP, built for the minimalist.
 
-Handles migrating your MySQL database schema upwards. Easy to use in different environments: multiple developers, staging, production. Just run migrate and it will move the database schema to the latest version.
+Handles migrating your MySQL database schema upwards. Easy to use in different environments: multiple developers, staging, production. Just run migrate and it will move the database schema to the latest version. Will detect conficts and print out errors.
 
 How to use
 ======================
