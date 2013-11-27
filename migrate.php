@@ -104,7 +104,8 @@ if ($argv[1] == 'add') {
   $new_version = $version;
 
   // Check the new version against existing migrations.
-  $last_file = end(get_migrations());
+  $files = get_migrations();
+  $last_file = end($files);
   if ($last_file !== false) {
     $file_version = get_version_from_file($last_file);
     if ($file_version > $new_version)
