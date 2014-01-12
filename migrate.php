@@ -27,9 +27,9 @@
 if (count($argv) <= 1) {
   echo "Usage:
      To add new migration:
-         php php-mysql-migrate/migrate.php add [name-without-spaces]
+         php php-mysql-migrate/migrate.php add <name>
      To migrate your database:
-         php php-mysql-migrate/migrate.php migrate
+         php php-mysql-migrate/migrate.php migrate [--skip-errors]
      ";
   exit;
 }
@@ -66,19 +66,31 @@ if ($f) {
 echo "Current database version is: $version\n";
 
 global $link;
+global $skip_errors;
+$skip_errors = false;
+
 function query($query) {
   global $link;
+  global $skip_errors;
 
-  if (@DEBUG)
+  if (@DEBUG) {
     return true;
+  }
+
+  echo "Query: $query\n";
 
   $result = mysql_query($query, $link);
   if (!$result) {
-    echo "Migration failed: " . mysql_error($link) . "\n";
-    echo "Aborting.\n";
-    mysql_query('ROLLBACK', $link);
-    mysql_close($link);
-    exit;
+    if ($skip_errors) {
+      echo "Query failed: " . mysql_error($link) . "\n";
+    }
+    else {
+      echo "Migration failed: " . mysql_error($link) . "\n";
+      echo "Aborting.\n";
+      mysql_query('ROLLBACK', $link);
+      mysql_close($link);
+      exit;
+    }
   }
   return $result;
 }
@@ -116,7 +128,7 @@ if ($argv[1] == 'add') {
   $new_version++;
   $path = MIGRATIONS_DIR . MIGRATE_FILE_PREFIX . sprintf('%04d', $new_version);
   if (@strlen($argv[2])) {
-    $path .= '-' . $argv[2];
+    $path .= '-' . str_replace(' ', '-', $argv[2]);
   }
   $path .= MIGRATE_FILE_POSTFIX;
 
@@ -134,6 +146,8 @@ if ($argv[1] == 'add') {
 }
 else if ($argv[1] == 'migrate') {
   $files = get_migrations();
+
+  $skip_errors = @$argv[2] == '--skip-errors';
 
   // Check to make sure there are no conflicts such as 2 files under the same version.
   $errors = array();
