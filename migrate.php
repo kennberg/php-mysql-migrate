@@ -47,13 +47,12 @@ if (count($argv) <= 1) {
 
 // Connect to the database.
 if (!@DEBUG) {
-  $link = mysql_connect(DBADDRESS, DBUSERNAME, DBPASSWORD);
+  $link = mysqli_connect(DBADDRESS, DBUSERNAME, DBPASSWORD, DBNAME);
   if (!$link) {
     echo "Failed to connect to the database.\n";
     exit;
   }
-  mysql_select_db(DBNAME, $link);
-  mysql_query("SET NAMES 'utf8'", $link);
+  mysqli_query($link, "SET NAMES 'utf8'");
 }
 
 // Find the latest version or start at 0.
@@ -79,16 +78,16 @@ function query($query) {
 
   echo "Query: $query\n";
 
-  $result = mysql_query($query, $link);
+  $result = mysqli_query($link, $query);
   if (!$result) {
     if ($skip_errors) {
-      echo "Query failed: " . mysql_error($link) . "\n";
+      echo "Query failed: " . mysqli_error($link) . "\n";
     }
     else {
-      echo "Migration failed: " . mysql_error($link) . "\n";
+      echo "Migration failed: " . mysqli_error($link) . "\n";
       echo "Aborting.\n";
-      mysql_query('ROLLBACK', $link);
-      mysql_close($link);
+      mysqli_query($link, 'ROLLBACK');
+      mysqli_close($link);
       exit;
     }
   }
@@ -207,6 +206,6 @@ else if ($argv[1] == 'migrate') {
 }
 
 if (!@DEBUG) {
-  mysql_close($link);
+  mysqli_close($link);
 }
 
