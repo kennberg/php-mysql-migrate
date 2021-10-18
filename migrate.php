@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 
+
 /**
  * Initialize your database parameters:
  *    cp config.php.sample config.php
@@ -27,9 +28,9 @@
 if (count($argv) <= 1) {
   echo "Usage:
      To add new migration:
-         php php-mysql-migrate/migrate.php add <name>
+         php php-sql-migrate/migrate.php add <name>
      To migrate your database:
-         php php-mysql-migrate/migrate.php migrate [--skip-errors]
+         php php-sql-migrate/migrate.php migrate [--skip-errors]
      ";
   exit;
 }
@@ -39,6 +40,8 @@ require_once('config.php');
 @define('MIGRATE_FILE_PREFIX', 'migrate-');
 @define('MIGRATE_FILE_POSTFIX', '.php');
 @define('DEBUG', false);
+@define('USE_PDO', false);
+
 
 if (count($argv) <= 1) {
   echo "See readme file for usage.\n";
@@ -47,12 +50,25 @@ if (count($argv) <= 1) {
 
 // Connect to the database.
 if (!@DEBUG) {
-  $link = mysqli_connect(DBADDRESS, DBUSERNAME, DBPASSWORD, DBNAME);
-  if (!$link) {
-    echo "Failed to connect to the database.\n";
-    exit;
+  if (USE_PDO) {
+    $dsn = sprintf('pgsql:dbname=%s;host=%s', DBNAME, DBADDRESS);
+    try {
+      $db_config = [
+        PDO::ATTR_TIMEOUT => 5,
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+      ];
+      $link = new PDO($dsn, DBUSERNAME, DBPASSWORD, $db_config);
+    } catch (PDOException $e) {
+      var_dump($e);
+      die("Could not connect to the database.\n");
+    }
+  } else {
+    $link = mysqli_connect(DBADDRESS, DBUSERNAME, DBPASSWORD, DBNAME);
+    if (!$link) {
+      die("Failed to connect to the database.\n");
+    }
+    mysqli_query($link, "SET NAMES 'utf8'");
   }
-  mysqli_query($link, "SET NAMES 'utf8'");
 }
 
 // Find the latest version or start at 0.
@@ -77,17 +93,25 @@ function query($query) {
   }
 
   echo "Query: $query\n";
+  if (@empty($query)) {
+    echo "Query is empty, skipping.\n";
+    return true;
+  }
 
-  $result = mysqli_query($link, $query);
+  $result = USE_PDO ? $link->query($query) : mysqli_query($link, $query);
   if (!$result) {
+    $error = USE_PDO ? $link->errorInfo() : mysqli_error($link);
     if ($skip_errors) {
-      echo "Query failed: " . mysqli_error($link) . "\n";
-    }
-    else {
-      echo "Migration failed: " . mysqli_error($link) . "\n";
+      echo "Query failed: " . $error . "\n";
+    } else {
+      echo "Migration failed: " . $error . "\n";
       echo "Aborting.\n";
-      mysqli_query($link, 'ROLLBACK');
-      mysqli_close($link);
+      if (USE_PDO) {
+        $link->query('ROLLBACK');
+      } else {
+        mysqli_query($link, 'ROLLBACK');
+        mysqli_close($link);
+      }
       exit;
     }
   }
@@ -119,8 +143,9 @@ if ($argv[1] == 'add') {
   $last_file = end($files);
   if ($last_file !== false) {
     $file_version = get_version_from_file($last_file);
-    if ($file_version > $new_version)
+    if ($file_version > $new_version) {
       $new_version = $file_version;
+    }
   }
 
   // Create migration file path.
@@ -138,12 +163,11 @@ if ($argv[1] == 'add') {
     fputs($f, "<?php\n\nquery(\$query);\n\n");
     fclose($f);
     echo "Done.\n";
-  }
-  else {
+  } else {
     echo "Failed.\n";
   }
-}
-else if ($argv[1] == 'migrate') {
+
+} else if ($argv[1] == 'migrate') {
   $files = get_migrations();
 
   $skip_errors = @$argv[2] == '--skip-errors';
@@ -191,21 +215,21 @@ else if ($argv[1] == 'migrate') {
     if ($f) {
       fputs($f, $version);
       fclose($f);
-    }
-    else {
+    } else {
       echo "Failed to output new version to " . MIGRATION_VERSION_FILE . "\n";
     }
   }
 
   if ($found_new) {
     echo "Migration complete.\n";
-  }
-  else {
+  } else {
     echo "Your database is up-to-date.\n";
   }
 }
 
 if (!@DEBUG) {
-  mysqli_close($link);
+  if (!USE_PDO) {
+    mysqli_close($link);
+  }
 }
 
