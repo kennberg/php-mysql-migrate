@@ -98,9 +98,22 @@ function query($query) {
     return true;
   }
 
-  $result = USE_PDO ? $link->query($query) : mysqli_query($link, $query);
+  $result = false;
+  $error = '';
+  if (USE_PDO) {
+    try {
+      $result = $link->query($query);
+    } catch (PDOException $e) {
+      $error = $e->getMessage();
+    }
+  } else {
+    $result = mysqli_query($link, $query);
+    if (!$result) {
+      $error = mysqli_error($link);
+    }
+  }
+
   if (!$result) {
-    $error = USE_PDO ? $link->errorInfo() : mysqli_error($link);
     if ($skip_errors) {
       echo "Query failed: " . $error . "\n";
     } else {
@@ -115,6 +128,7 @@ function query($query) {
       exit;
     }
   }
+
   return $result;
 }
 
