@@ -32,7 +32,7 @@ function query($query) {
 }
 
 
-query('BEGIN');
+query('BEGIN;');
 include($argv[1]);
-query('COMMIT');
+query('COMMIT;');
 
